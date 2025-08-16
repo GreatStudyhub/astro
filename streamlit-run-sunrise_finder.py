@@ -7,7 +7,6 @@ from astral.sun import sun
 from timezonefinder import TimezoneFinder
 import pytz
 
-
 # ---------------------------
 # Function to fetch multiple location suggestions
 # ---------------------------
@@ -19,7 +18,6 @@ def get_location_suggestions(query, country_hint=None):
         return locations
     except Exception:
         return []
-
 
 # ---------------------------
 # Function to fetch sunrise
@@ -49,29 +47,15 @@ def fetch_sunrise(location_obj, date_obj):
         st.error(f"An error occurred: {e}")
         return None
 
-
-# ---------------------------
-# Function to fetch user country
-# ---------------------------
-def get_user_country():
-    try:
-        ip = requests.get('https://api.ipify.org').text
-        response = requests.get(f'https://ipinfo.io/{ip}/json')
-        data = response.json()
-        return data.get('country', 'Unknown')
-    except:
-        return 'Unknown'
-
-
 # ---------------------------
 # Streamlit UI
 # ---------------------------
 st.set_page_config(page_title="Sunrise Finder", layout="centered")
 st.title(":sunrise: Sunrise Finder")
 
-# Get country hint
-country = get_user_country()
-st.text(f"Detected Country: {country}")
+# Step 0: Select country manually (fixes 'US only' issue)
+country_list = ["India", "United States", "United Kingdom", "Canada", "Australia", "Singapore", "UAE", "Germany", "France", "Other"]
+country = st.selectbox("Select Your Country:", country_list, index=0)
 
 # Step 1: Enter location query
 place_query = st.text_input("Enter Location (City, Place, Landmark):")

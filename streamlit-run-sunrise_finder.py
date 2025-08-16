@@ -1,74 +1,111 @@
 import streamlit as st
+import requests
+import datetime
 from geopy.geocoders import Nominatim
 from astral import LocationInfo
 from astral.sun import sun
-import datetime
+from timezonefinder import TimezoneFinder
 import pytz
-from timezonefinder import TimezoneFinder  # Add timezone library
 
-# Function to fetch sunrise time
-def fetch_sunrise(place, date_obj):
-    if not place:
-        st.error("Please enter a location")
-        return None
-    if not date_obj:
-        st.error("Please enter a valid date")
-        return None
-    
+
+# ---------------------------
+# Function to fetch multiple location suggestions
+# ---------------------------
+def get_location_suggestions(query, country_hint=None):
+    geolocator = Nominatim(user_agent="hora_gui")
     try:
-        geolocator = Nominatim(user_agent="hora_gui")
-        location = geolocator.geocode(place)
+        query_full = f"{query}, {country_hint}" if country_hint else query
+        locations = geolocator.geocode(query_full, exactly_one=False, limit=5, addressdetails=True)
+        return locations
+    except Exception:
+        return []
+
+
+# ---------------------------
+# Function to fetch sunrise
+# ---------------------------
+def fetch_sunrise(location_obj, date_obj):
+    try:
+        lat = round(location_obj.latitude, 6)
+        lon = round(location_obj.longitude, 6)
         
-        if not location:
-            st.error("Location not found. Please try again.")
-            return None
-        
-        lat = round(location.latitude, 6)
-        lon = round(location.longitude, 6)
-        
-        # Using TimezoneFinder to get the timezone based on coordinates
         tz_finder = TimezoneFinder()
         timezone_str = tz_finder.timezone_at(lng=lon, lat=lat)
-        tz = pytz.timezone(timezone_str) if timezone_str else pytz.utc
         
-        city = LocationInfo(location.address, "Unknown", tz.zone, lat, lon)
+        if timezone_str:
+            tz = pytz.timezone(timezone_str)
+        else:
+            st.warning("Timezone not found, defaulting to UTC.")
+            tz = pytz.utc
+            timezone_str = "UTC"
+        
+        city = LocationInfo(location_obj.address, "Unknown", timezone_str, lat, lon)
         s = sun(city.observer, date=date_obj, tzinfo=tz)
         sunrise_time = s['sunrise'].strftime('%H:%M')
         
-        return lat, lon, sunrise_time
-        
+        return lat, lon, sunrise_time, location_obj.address
+    
     except Exception as e:
         st.error(f"An error occurred: {e}")
         return None
 
+
+# ---------------------------
+# Function to fetch user country
+# ---------------------------
+def get_user_country():
+    try:
+        ip = requests.get('https://api.ipify.org').text
+        response = requests.get(f'https://ipinfo.io/{ip}/json')
+        data = response.json()
+        return data.get('country', 'Unknown')
+    except:
+        return 'Unknown'
+
+
+# ---------------------------
 # Streamlit UI
-st.title("Sunrise Finder")
+# ---------------------------
+st.set_page_config(page_title="🌅 Sunrise Finder", layout="centered")
+st.title("🌅 Location & Sunrise Finder")
 
-# Input Fields
-place = st.text_input("Enter Location:")
+# Get country hint
+country = get_user_country()
+st.text(f"Detected Country: {country}")
 
-# Use text_input to get DD-MM-YYYY format for date manually
-date_str = st.text_input("Enter Date of Birth (DD-MM-YYYY):", value=datetime.date.today().strftime("%d-%m-%Y"))
+# Step 1: Enter location query
+place_query = st.text_input("Enter Location (City, Place, Landmark):")
 
-# Function to convert the DD-MM-YYYY string into a date object
+location_choice = None
+locations = []
+
+if place_query:
+    locations = get_location_suggestions(place_query, country)
+    if locations:
+        options = [loc.address for loc in locations]
+        choice = st.selectbox("Select the best match:", options)
+        location_choice = next((loc for loc in locations if loc.address == choice), None)
+    else:
+        st.error("No matching locations found. Please refine your input.")
+
+# Step 2: Enter date
+date_str = st.text_input("Enter Date (DD-MM-YYYY):", value=datetime.date.today().strftime("%d-%m-%Y"))
+
 def convert_to_date(date_str):
     try:
-        date_obj = datetime.datetime.strptime(date_str, "%d-%m-%Y").date()
-        return date_obj
+        return datetime.datetime.strptime(date_str, "%d-%m-%Y").date()
     except ValueError:
-        st.error("Invalid date format. Please use DD-MM-YYYY.")
+        st.error("Invalid date format. Use DD-MM-YYYY.")
         return None
 
-# Convert the entered date string to a date object
 date_obj = convert_to_date(date_str)
 
-# Button to fetch sunrise time
-if st.button("Get Sunrise"):
-    result = fetch_sunrise(place, date_obj)
-    
+# Step 3: Sunrise button
+if st.button("Get Sunrise") and location_choice and date_obj:
+    result = fetch_sunrise(location_choice, date_obj)
     if result:
-        lat, lon, sunrise_time = result
-        st.text(f"Date of Birth (formatted): {date_str}")  # Display the input date
+        lat, lon, sunrise_time, resolved_address = result
+        st.success(f"🌍 Location: {resolved_address}")
         st.text(f"Latitude: {lat}")
         st.text(f"Longitude: {lon}")
         st.text(f"Sunrise (local time): {sunrise_time}")

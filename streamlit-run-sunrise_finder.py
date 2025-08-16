@@ -4,20 +4,15 @@ from astral import LocationInfo
 from astral.sun import sun
 import datetime
 import pytz
+from timezonefinder import TimezoneFinder  # Add timezone library
 
 # Function to fetch sunrise time
-def fetch_sunrise(place, date_str):
+def fetch_sunrise(place, date_obj):
     if not place:
         st.error("Please enter a location")
         return None
-    if not date_str:
-        st.error("Please enter a date in YYYY-MM-DD format")
-        return None
-    
-    try:
-        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        st.error("Invalid date format. Use YYYY-MM-DD")
+    if not date_obj:
+        st.error("Please enter a valid date")
         return None
     
     try:
@@ -31,11 +26,10 @@ def fetch_sunrise(place, date_str):
         lat = round(location.latitude, 6)
         lon = round(location.longitude, 6)
         
-        # Guess timezone (basic)
-        try:
-            tz = pytz.timezone("Asia/Kolkata") if "India" in location.address else pytz.utc
-        except:
-            tz = pytz.utc
+        # Using TimezoneFinder to get the timezone based on coordinates
+        tz_finder = TimezoneFinder()
+        timezone_str = tz_finder.timezone_at(lng=lon, lat=lat)
+        tz = pytz.timezone(timezone_str) if timezone_str else pytz.utc
         
         city = LocationInfo(location.address, "Unknown", tz.zone, lat, lon)
         s = sun(city.observer, date=date_obj, tzinfo=tz)
@@ -48,18 +42,33 @@ def fetch_sunrise(place, date_str):
         return None
 
 # Streamlit UI
-st.title("Location & Sunrise Finder")
+st.title("Sunrise Finder")
 
 # Input Fields
 place = st.text_input("Enter Location:")
-date_str = st.text_input("Enter Date (YYYY-MM-DD):", value=datetime.date.today().strftime("%Y-%m-%d"))
+
+# Use text_input to get DD-MM-YYYY format for date manually
+date_str = st.text_input("Enter Date of Birth (DD-MM-YYYY):", value=datetime.date.today().strftime("%d-%m-%Y"))
+
+# Function to convert the DD-MM-YYYY string into a date object
+def convert_to_date(date_str):
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%d-%m-%Y").date()
+        return date_obj
+    except ValueError:
+        st.error("Invalid date format. Please use DD-MM-YYYY.")
+        return None
+
+# Convert the entered date string to a date object
+date_obj = convert_to_date(date_str)
 
 # Button to fetch sunrise time
 if st.button("Get Sunrise"):
-    result = fetch_sunrise(place, date_str)
+    result = fetch_sunrise(place, date_obj)
     
     if result:
         lat, lon, sunrise_time = result
+        st.text(f"Date of Birth (formatted): {date_str}")  # Display the input date
         st.text(f"Latitude: {lat}")
         st.text(f"Longitude: {lon}")
         st.text(f"Sunrise (local time): {sunrise_time}")

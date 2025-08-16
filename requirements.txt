@@ -2,3 +2,5 @@ geopy
 astral
 pytz
 streamlit
+timezonefinder
+

@@ -28,23 +28,23 @@ def fetch_sunrise(location_obj, date_obj):
     try:
         lat = round(location_obj.latitude, 6)
         lon = round(location_obj.longitude, 6)
-        
+
         tz_finder = TimezoneFinder()
         timezone_str = tz_finder.timezone_at(lng=lon, lat=lat)
-        
+
         if timezone_str:
             tz = pytz.timezone(timezone_str)
         else:
             st.warning("Timezone not found, defaulting to UTC.")
             tz = pytz.utc
             timezone_str = "UTC"
-        
+
         city = LocationInfo(location_obj.address, "Unknown", timezone_str, lat, lon)
         s = sun(city.observer, date=date_obj, tzinfo=tz)
         sunrise_time = s['sunrise'].strftime('%H:%M')
-        
+
         return lat, lon, sunrise_time, location_obj.address
-    
+
     except Exception as e:
         st.error(f"An error occurred: {e}")
         return None
@@ -66,8 +66,8 @@ def get_user_country():
 # ---------------------------
 # Streamlit UI
 # ---------------------------
-st.set_page_config(page_title="🌅 Sunrise Finder", layout="centered")
-st.title("🌅 Location & Sunrise Finder")
+st.set_page_config(page_title="Sunrise Finder", layout="centered")
+st.title(":sunrise: Sunrise Finder")
 
 # Get country hint
 country = get_user_country()
@@ -105,7 +105,7 @@ if st.button("Get Sunrise") and location_choice and date_obj:
     result = fetch_sunrise(location_choice, date_obj)
     if result:
         lat, lon, sunrise_time, resolved_address = result
-        st.success(f"🌍 Location: {resolved_address}")
+        st.success(f":earth_asia: Location: {resolved_address}")
         st.text(f"Latitude: {lat}")
         st.text(f"Longitude: {lon}")
         st.text(f"Sunrise (local time): {sunrise_time}")

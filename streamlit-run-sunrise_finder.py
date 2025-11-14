@@ -33,11 +33,19 @@ def fetch_sunrise(location_obj, date_obj):
         if timezone_str:
             tz = pytz.timezone(timezone_str)
         else:
-            st.warning("Timezone not found, defaulting to UTC.")
             tz = pytz.utc
             timezone_str = "UTC"
 
-        city = LocationInfo(location_obj.address, "Unknown", timezone_str, lat, lon)
+        short_name = location_obj.address.split(",")[0]
+
+        city = LocationInfo(
+            short_name,
+            "",
+            timezone_str,
+            lat,
+            lon
+        )
+
         s = sun(city.observer, date=date_obj, tzinfo=tz)
         sunrise_time = s['sunrise'].strftime('%H:%M')
 
